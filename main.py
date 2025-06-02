@@ -1,17 +1,13 @@
 import os
 import asyncio
-import uuid
+import uuid # Import uuid for generating unique IDs
 from pyrogram import Client, filters, enums
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from flask import Flask, request, abort, jsonify # Import Flask, request, abort, jsonify
 
 # Import configurations and database/host functions
 from config import API_ID, API_HASH, BOT_TOKEN, MONGO_URI, MONGO_DB_NAME, MONGO_COLLECTION_USERS, FORCE_SUB_CHANNEL, OWNER_ID
 from db import Database, is_subscribed
-from hosts import upload_to_imgbb, upload_to_envs, upload_to_imgbox
-
-# --- Flask App Initialization ---
-app = Flask(__name__) # Initialize Flask app
+from hosts import upload_to_imgbb, upload_to_envs, upload_to_imgbox # Add imports for other hosts as you implement them
 
 # --- Pyrogram Client Initialization for Webhooks ---
 # Important: Pyrogram client needs to be started without automatically getting updates (no_updates=True)
@@ -36,22 +32,27 @@ if not os.path.exists(DOWNLOADS_DIR):
     os.makedirs(DOWNLOADS_DIR)
     print(f"Created downloads directory: {DOWNLOADS_DIR}")
 
-# --- PYROGRAM HANDLERS (These remain largely the same, but they run within the Flask/webhook context) ---
+
+# --- PYROGRAM HANDLERS (These remain largely the same, now they run within the Flask/webhook context) ---
 
 @pyro_client.on_message(filters.command("start") & filters.private)
 async def start_command(client, message):
     user_id = message.from_user.id
+    
+    # Add user to database if they don't exist
     if not await db.get_user(user_id):
         await db.add_user(user_id)
     
+    # Force subscription check
     if FORCE_SUB_CHANNEL and not await is_subscribed(client, user_id, FORCE_SUB_CHANNEL):
         await message.reply_text(
-            "Hello! Please join our channel to use this bot!",
+            "Hello! Please join our channel to use this bot. Once you join, click 'Start' again.",
             reply_markup=InlineKeyboardMarkup(
                 [[InlineKeyboardButton("📢 Join Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL.replace('@', '')}")]]
             )
         )
         return
+
     await message.reply_text(
         "👋 Hello! I'm your image linking bot.\n\n"
         "**In private chat:** Send me an image, and I'll give you options to upload it to various hosting sites.\n\n"
@@ -61,6 +62,8 @@ async def start_command(client, message):
 @pyro_client.on_message(filters.photo & filters.private)
 async def handle_private_photo(client, message):
     user_id = message.from_user.id
+
+    # Re-check force subscription for every photo
     if FORCE_SUB_CHANNEL and not await is_subscribed(client, user_id, FORCE_SUB_CHANNEL):
         await message.reply_text(
             "Please join our channel to use this bot!",
@@ -73,14 +76,17 @@ async def handle_private_photo(client, message):
     status_message = await message.reply_text("📥 Downloading your image...")
     file_path = None
     try:
+        # Save downloaded files into the 'downloads' directory
         file_path = await message.download(file_name=os.path.join(DOWNLOADS_DIR, str(uuid.uuid4())))
     except Exception as e:
         await status_message.edit_text(f"❌ Error downloading image: `{e}`")
         return
 
+    # Generate a unique ID for the downloaded file and store its path
     unique_file_id = uuid.uuid4().hex
     temp_file_storage[unique_file_id] = file_path
 
+    # Create inline keyboard for hosting options, using the unique_file_id
     keyboard = InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("🔗 Upload to ImgBB", callback_data=f"upload_imgbb:{unique_file_id}")],
@@ -99,6 +105,7 @@ async def handle_group_photo_reply(client, message):
     status_message = await message.reply_text("📥 Downloading image for upload...")
     file_path = None
     try:
+        # Save downloaded files into the 'downloads' directory
         file_path = await message.reply_to_message.download(file_name=os.path.join(DOWNLOADS_DIR, str(uuid.uuid4())))
     except Exception as e:
         await message.reply_text(f"❌ Error downloading image: `{e}`")
@@ -128,6 +135,7 @@ async def imgbb_command_in_group(client, message):
     status_message = await message.reply_text("📥 Downloading image for ImgBB upload...")
     file_path = None
     try:
+        # Save downloaded files into the 'downloads' directory
         file_path = await message.reply_to_message.download(file_name=os.path.join(DOWNLOADS_DIR, str(uuid.uuid4())))
     except Exception as e:
         await status_message.edit_text(f"❌ Error downloading image: `{e}`")
@@ -157,6 +165,7 @@ async def envs_command_in_group(client, message):
     status_message = await message.reply_text("📥 Downloading image for Envs.sh upload...")
     file_path = None
     try:
+        # Save downloaded files into the 'downloads' directory
         file_path = await message.reply_to_message.download(file_name=os.path.join(DOWNLOADS_DIR, str(uuid.uuid4())))
     except Exception as e:
         await status_message.edit_text(f"❌ Error downloading image: `{e}`")
@@ -302,44 +311,13 @@ async def group_command_restriction(client, message):
     else:
         pass 
 
-# --- FLASK ROUTES FOR WEBHOOK HANDLING ---
-
-@app.route("/")
-def hello_world():
-    """Simple health check endpoint."""
-    return "Hello, World! Your bot is running.", 200
-
-@app.route(f"/{BOT_TOKEN}", methods=["POST"])
-async def telegram_webhook():
-    """
-    This endpoint receives updates from Telegram's Bot API.
-    """
-    if request.method == "POST":
-        update = request.get_json()
-        if not update:
-            print("Received empty update.")
-            abort(400)
-        
-        # Pass the update to Pyrogram to process
-        # pyrogram.Client.process_update expects a dict, not a raw JSON string
-        try:
-            await pyro_client.process_update(update)
-            return jsonify({"status": "ok"}), 200 # Acknowledge success
-        except Exception as e:
-            print(f"Error processing update: {e}")
-            return jsonify({"status": "error", "message": str(e)}), 500 # Indicate error
-
-    return jsonify({"status": "method not allowed"}), 405
-
-# --- Startup Logic to Set Webhook ---
+# --- Webhook Setup Function (Call this once after deployment) ---
 async def set_webhook_on_startup():
     """
     Sets the Telegram webhook URL when the bot starts.
-    This should be called once when your web service is ready.
+    This function should be called once after the web service is deployed
+    and its public URL is known.
     """
-    # Render provides the public URL via the RENDER_EXTERNAL_URL environment variable
-    # Koyeb uses K_SERVICE_URL or you need to construct it.
-    # For Render, RENDER_EXTERNAL_URL is recommended.
     webhook_base_url = os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("K_SERVICE_URL") 
 
     if not webhook_base_url:
@@ -358,33 +336,16 @@ async def set_webhook_on_startup():
     except Exception as e:
         print(f"Error setting webhook: {e}")
     finally:
-        # Stop Pyrogram client after setting webhook if it's not needed for ongoing operations
-        # (Pyrogram keeps an internal session open for processing updates)
-        # However, for continuous operation, the client should remain started.
-        # So, we don't call client.stop() here.
+        # In a webhook setup, the client needs to remain "started"
+        # for process_update to work, but it doesn't need to be `run()`.
+        # No `client.stop()` here.
         pass
 
-
-
-async def startup_and_run_flask():
-    """
-    Performs webhook setup and then allows Flask to run.
-    This will be called by Gunicorn.
-    """
-    # Create an event loop if not already running (for Gunicorn's context)
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    
-    # Run the webhook setup as an asyncio task
-    loop.create_task(set_webhook_on_startup())
-    
-    # Flask will then be run by Gunicorn, which implicitly runs the event loop
-    # for async handlers.
-
-# Call this if not running through Gunicorn for local testing
-if __name__ == '__main__':
-    print("Flask app loaded. Webhook setup will be triggered by Gunicorn or manually.")
-    
+# This block is for local testing of main.py logic (e.g., running handlers directly)
+# but it's not the entry point for the web service.
+if __name__ == "__main__":
+    print("This script is primarily for defining bot logic and handlers.")
+    print("To run the bot as a web service, execute `gunicorn app:app` (or `python app.py` for local Flask dev).")
+    # You might optionally run a specific handler for testing purposes here, e.g.:
+    # asyncio.run(pyro_client.start())
+    # asyncio.run(pyro_client.idle()) # This would start long polling, not webhooks
