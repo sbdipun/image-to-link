@@ -1,11 +1,11 @@
-pyrogram
-motor
 aiohttp
 pyimgbox
 python-dotenv # Optional, for local development with .env file
-tgcrypto
-Flask[async]
-gunicorn
-uvloop
-dnspython
-requests
+Flask[async]>=2.0.0
+gunicorn==21.2.0
+pyrogram==2.0.108
+tgcrypto ; platform_system != "Windows"
+requests==2.31.0
+dnspython==2.4.2
+motor==3.6.0
+uvloop ; platform_system != "Windows"
