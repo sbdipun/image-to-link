@@ -1,53 +1,85 @@
-# app.py
 
 import os
 import asyncio
-from flask import Flask, request, jsonify, abort # Import Flask components
+import requests
+from flask import Flask, request, jsonify, abort
 
-# Import the Pyrogram client and BOT_TOKEN from main.py
-# This allows app.py to access the initialized Pyrogram client and its handlers.
-from main import pyro_client, BOT_TOKEN 
+# Initialize Flask app
+app = Flask(__name__)
 
-# --- Flask App Initialization ---
-app = Flask(__name__) # Initialize Flask app
+# Import Pyrogram client and BOT_TOKEN after Flask app is initialized
+from main import pyro_client, BOT_TOKEN
 
-# --- Flask Routes ---
+TELEGRAM_API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
+WEBHOOK_PATH = f"/{BOT_TOKEN}"  # Must match route below
+
 
 @app.route('/')
 def hello_world():
-    """Simple health check endpoint."""
     return 'Bot Is Up', 200
 
-@app.route(f"/{BOT_TOKEN}", methods=["POST"])
+
+@app.route('/setwebhook', methods=['GET'])
+def set_webhook():
+    public_url = os.getenv("PUBLIC_URL")
+    if not public_url:
+        return jsonify({
+            "status": "error",
+            "message": "PUBLIC_URL environment variable not set"
+        }), 500
+
+    webhook_url = f"{public_url}{WEBHOOK_PATH}"
+
+    # Optional: Get current webhook info
+    response = requests.get(f"{TELEGRAM_API_URL}/getWebhookInfo")
+    current_info = response.json()
+    print("Current webhook info:", current_info)
+
+    # Set new webhook
+    response = requests.post(
+        f"{TELEGRAM_API_URL}/setWebhook",
+        json={"url": webhook_url}
+    )
+
+    result = response.json()
+    if result.get("ok"):
+        return jsonify({
+            "status": "success",
+            "webhook_url": webhook_url,
+            "telegram_response": result
+        }), 200
+    else:
+        return jsonify({
+            "status": "error",
+            "message": "Failed to set webhook",
+            "telegram_response": result
+        }), 500
+
+
+@app.route(WEBHOOK_PATH, methods=["POST"])
 async def telegram_webhook():
-    """
-    This endpoint receives updates from Telegram's Bot API.
-    """
-    if request.method == "POST":
-        update = request.get_json()
-        if not update:
-            print("Received empty update.")
-            abort(400)
-            await pyro_client.start()
+    if request.method != "POST":
+        return jsonify({"status": "method not allowed"}), 405
 
-        # Pass the update to Pyrogram to process
-        try:
-            await pyro_client.process_update(update)
-            return jsonify({"status": "ok"}), 200 # Acknowledge success immediately
-        except Exception as e:
-            print(f"Error processing update: {e}")
-            # It's crucial to return a 200 OK to Telegram even on internal errors
-            # to prevent Telegram from re-sending the update repeatedly.
-            return jsonify({"status": "error", "message": str(e)}), 200 
+    update = request.get_json()
+    if not update:
+        print("Received empty update.")
+        abort(400)
 
-    return jsonify({"status": "method not allowed"}), 405
+    try:
+        await pyro_client.process_update(update)
+        return jsonify({"status": "ok"}), 200
+    except Exception as e:
+        print(f"Error processing update: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 200
 
-# --- Startup Logic for Local Development (Optional) ---
-# This block is primarily for running Flask locally using `python app.py`.
-# When deploying with Gunicorn (via Procfile), Gunicorn will import and run `app` directly,
-# so this block will not be executed.
-if __name__ == "__main__": 
+
+# --- OPTIONAL: Run auto webhook setup only when running locally ---
+# On Gunicorn, this block will NOT execute
+if __name__ == "__main__":
+    import uvloop
+    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
     port = int(os.environ.get("PORT", 5000))
-    print(f"Flask app starting on port {port}...")
+    print(f"Starting Flask app on port {port}...")
     app.run(host="0.0.0.0", port=port)
-
