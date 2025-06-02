@@ -1,3 +1,5 @@
+# main.py
+
 import os
 import asyncio
 import uuid
@@ -201,7 +203,7 @@ async def callback_handler(client, callback_query):
         if host_type == "imgbb":
             link = await upload_to_imgbb(file_path)
         elif host_type == "envs":
-            link = await upload_to_envs(image_path=file_path)
+            link = await upload_to_envs(file_path)
         elif host_type == "imgbox":
             link = await upload_to_imgbox(file_path)
 
@@ -288,12 +290,8 @@ async def set_webhook_on_startup():
     print(f"Attempting to set webhook to: {webhook_url}")
 
     try:
+        await pyro_client.start()
         await pyro_client.set_webhook(webhook_url)
         print(f"Webhook successfully set to: {webhook_url}")
     except Exception as e:
         print(f"Error setting webhook: {e}")
-
-# For local testing only
-if __name__ == "__main__":
-    print("This script is primarily for defining bot logic and handlers.")
-    print("To run the bot as a web service, execute `gunicorn app:app`.")
