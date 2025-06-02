@@ -1,34 +1,16 @@
 {
-  "name": "telegram-image-uploader-bot",
+  "name": "telegram-image-bot",
   "version": "1.0.0",
-  "description": "A Telegram bot that receives images and uploads them to ImgBB, Envs.sh, or Imgbox.",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
-    "setwebhook": "node setwebhook.js"
+    "start": "node index.js"
   },
   "dependencies": {
     "axios": "^1.6.7",
+    "express": "^4.18.2",
     "form-data": "^4.0.2",
     "fs-extra": "^11.1.1",
     "telegraf": "^4.16.3",
     "uuid": "^10.0.0"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.2"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "keywords": [
-    "telegram",
-    "bot",
-    "image upload",
-    "imgbb",
-    "envs.sh",
-    "webhook"
-  ],
-  "author": "Your Name",
-  "license": "MIT"
+  }
 }
