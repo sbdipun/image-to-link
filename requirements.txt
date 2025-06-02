@@ -6,3 +6,5 @@ python-dotenv # Optional, for local development with .env file
 tgcrypto
 flask
 gunicorn
+uvloop
+dnspython
