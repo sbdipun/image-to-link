@@ -1,30 +1,25 @@
-# config.py
+// config.js
 
-import os
+module.exports = {
+    // 🤖 Bot Token (Required)
+    BOT_TOKEN: process.env.BOT_TOKEN || "YOUR_BOT_TOKEN_HERE",
 
-# --- Telegram API Credentials ---
-API_ID = int(os.environ.get("API_ID", 12345678)) # Replace with your actual API ID
-API_HASH = os.environ.get("API_HASH", "your_api_hash_here") # Replace with your actual API Hash
+    // 🛡️ Force Subscribe Channel (Optional, set to null to disable)
+    FORCE_SUB_CHANNEL: process.env.FORCE_SUB_CHANNEL || "@your_channel", // without @ if needed
 
-# --- Bot Token ---
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE") # Replace with your actual Bot Token
+    // 👤 Owner ID (for /broadcast and /users commands)
+    OWNER_ID: parseInt(process.env.OWNER_ID) || 123456789,
 
-# --- MongoDB Connection URI ---
-# Get this from your MongoDB Atlas dashboard (or your self-hosted MongoDB).
-# It typically looks like: "mongodb+srv://<username>:<password>@<cluster-name>.mongodb.net/<database-name>?retryWrites=true&w=majority"
-MONGO_URI = os.environ.get("MONGO_URI", "YOUR_MONGODB_CONNECTION_URI_HERE") # Replace with your actual MongoDB URI
+    // 💾 MongoDB URI (for storing user data)
+    MONGO_URI: process.env.MONGO_URI || "mongodb://localhost:27017/imagebot",
 
-# --- MongoDB Database and Collection Names ---
-# Define the name of your MongoDB database
-MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME", "image_linker_bot_db") # You can change this to your desired database name
-MONGO_COLLECTION_USERS = os.environ.get("MONGO_COLLECTION_USERS", "users") # You can change this to your desired collection name for users
+    // 📁 Local directory for image downloads
+    DOWNLOADS_DIR: "downloads",
 
-# --- Force Subscription Channel ---
-FORCE_SUB_CHANNEL = os.environ.get("FORCE_SUB_CHANNEL", "@YourForceSubChannel") # Replace with your channel username or ID, or set to None
+    // 🔗 Optional: Hosting service API keys
+    IMGBB_API_KEY: process.env.IMGBB_API_KEY || "",
+    IMGBOX_API_KEY: process.env.IMGBOX_API_KEY || "",
 
-# --- Bot Owner ID ---
-OWNER_ID = int(os.environ.get("OWNER_ID", 1234567890)) # Replace with your actual Telegram User ID
-IMGBB_API_KEY = os.environ.get("IMGBB_API_KEY", "YOUR_IMGBB_API_KEY_HERE") # Replace with your actual ImgBB API Key
-IMGBOX_API_KEY = os.environ.get("IMGBOX_API_KEY", None) # Replace with your actual Imgbox API Key if needed, or None
-# FREEIMAGEHOST_API_KEY = os.environ.get("FREEIMAGEHOST_API_KEY", "YOUR_FREEIMAGEHOST_API_KEY_HERE")
-# CATBOX_API_KEY = os.environ.get("CATBOX_API_KEY", "YOUR_CATBOX_API_KEY_HERE")
+    // 🌐 Public base URL of your deployed bot
+    PUBLIC_URL: process.env.RENDER_EXTERNAL_URL || process.env.K_SERVICE_URL || "http://localhost:5000",
+};
