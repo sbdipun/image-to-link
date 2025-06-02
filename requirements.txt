@@ -4,7 +4,7 @@ aiohttp
 pyimgbox
 python-dotenv # Optional, for local development with .env file
 tgcrypto
-flask
+Flask[async]
 gunicorn
 uvloop
 dnspython
