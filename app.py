@@ -72,14 +72,3 @@ async def telegram_webhook():
     except Exception as e:
         print(f"Error processing update: {e}")
         return jsonify({"status": "error", "message": str(e)}), 200
-
-
-# --- OPTIONAL: Run auto webhook setup only when running locally ---
-# On Gunicorn, this block will NOT execute
-if __name__ == "__main__":
-    import uvloop
-    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-
-    port = int(os.environ.get("PORT", 5000))
-    print(f"Starting Flask app on port {port}...")
-    app.run(host="0.0.0.0", port=port)
