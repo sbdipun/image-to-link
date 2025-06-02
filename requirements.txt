@@ -4,5 +4,5 @@ aiohttp
 pyimgbox
 python-dotenv # Optional, for local development with .env file
 tgcrypto
-Flask
+flask
 gunicorn
