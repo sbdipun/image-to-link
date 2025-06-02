@@ -3,13 +3,22 @@
 import os
 import asyncio
 import uuid
+import logging
 from pyrogram import Client, filters, enums
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("PyroWebhookBot")
+
 # Import configurations and database/host functions
-from config import API_ID, API_HASH, BOT_TOKEN, MONGO_URI, MONGO_DB_NAME, MONGO_COLLECTION_USERS, FORCE_SUB_CHANNEL, OWNER_ID
-from db import Database, is_subscribed
-from hosts import upload_to_imgbb, upload_to_envs, upload_to_imgbox
+try:
+    from config import API_ID, API_HASH, BOT_TOKEN, MONGO_URI, MONGO_DB_NAME, MONGO_COLLECTION_USERS, FORCE_SUB_CHANNEL, OWNER_ID
+    from db import Database, is_subscribed
+    from hosts import upload_to_imgbb, upload_to_envs, upload_to_imgbox
+except Exception as e:
+    logger.error(f"Error importing modules: {e}")
+    raise
 
 # --- Pyrogram Client Initialization for Webhooks ---
 pyro_client = Client(
@@ -17,7 +26,7 @@ pyro_client = Client(
     api_id=API_ID,
     api_hash=API_HASH,
     bot_token=BOT_TOKEN,
-    no_updates=True  # Disable long polling, we'll use webhooks
+    no_updates=True  # Disable long polling; we're using webhooks
 )
 
 # --- Database Initialization ---
@@ -30,12 +39,13 @@ temp_file_storage = {}
 DOWNLOADS_DIR = "downloads"
 if not os.path.exists(DOWNLOADS_DIR):
     os.makedirs(DOWNLOADS_DIR)
-    print(f"Created downloads directory: {DOWNLOADS_DIR}")
+    logger.info(f"Created downloads directory: {DOWNLOADS_DIR}")
 
 # --- PYROGRAM HANDLERS ---
 
 @pyro_client.on_message(filters.command("start") & filters.private)
 async def start_command(client, message):
+    logger.info(f"[START] User {message.from_user.id} started the bot.")
     user_id = message.from_user.id
     if not await db.get_user(user_id):
         await db.add_user(user_id)
@@ -93,7 +103,6 @@ async def handle_private_photo(client, message):
 async def handle_group_photo_reply(client, message):
     if not message.reply_to_message or not message.reply_to_message.photo:
         return
-
     status_message = await message.reply_text("📥 Downloading image for upload...")
     file_path = None
     try:
@@ -101,16 +110,13 @@ async def handle_group_photo_reply(client, message):
     except Exception as e:
         await message.reply_text(f"❌ Error downloading image: `{e}`")
         return
-
     await status_message.edit_text("⬆️ Uploading to ImgBB (default host)...")
     imgbb_link = await upload_to_imgbb(file_path)
     response_text = ""
-
     if imgbb_link:
         response_text = f"🖼️ Here's your image link:\n`{imgbb_link}`\n_Uploaded via ImgBB_"
     else:
         response_text = "❌ Failed to upload image to the default host."
-
     await status_message.edit_text(response_text, parse_mode=enums.ParseMode.MARKDOWN)
     await asyncio.sleep(0.1)
     if os.path.exists(file_path):
@@ -121,7 +127,6 @@ async def imgbb_command_in_group(client, message):
     if not message.reply_to_message or not message.reply_to_message.photo:
         await message.reply_text("Please reply to an image with `/imgbb` to get an ImgBB link.", parse_mode=enums.ParseMode.MARKDOWN)
         return
-
     status_message = await message.reply_text("📥 Downloading image for ImgBB upload...")
     file_path = None
     try:
@@ -129,16 +134,13 @@ async def imgbb_command_in_group(client, message):
     except Exception as e:
         await status_message.edit_text(f"❌ Error downloading image: `{e}`")
         return
-
     await status_message.edit_text("⬆️ Uploading to ImgBB...")
     imgbb_link = await upload_to_imgbb(file_path)
     response_text = ""
-
     if imgbb_link:
         response_text = f"🖼️ Here's your ImgBB link:\n`{imgbb_link}`"
     else:
         response_text = "❌ Failed to upload image to ImgBB."
-
     await status_message.edit_text(response_text, parse_mode=enums.ParseMode.MARKDOWN)
     await asyncio.sleep(0.1)
     if os.path.exists(file_path):
@@ -149,7 +151,6 @@ async def envs_command_in_group(client, message):
     if not message.reply_to_message or not message.reply_to_message.photo:
         await message.reply_text("Please reply to an image with `/envs` to get an Envs.sh link.", parse_mode=enums.ParseMode.MARKDOWN)
         return
-
     status_message = await message.reply_text("📥 Downloading image for Envs.sh upload...")
     file_path = None
     try:
@@ -157,16 +158,13 @@ async def envs_command_in_group(client, message):
     except Exception as e:
         await status_message.edit_text(f"❌ Error downloading image: `{e}`")
         return
-
     await status_message.edit_text("⬆️ Uploading to Envs.sh...")
     envs_link = await upload_to_envs(image_path=file_path)
     response_text = ""
-
     if envs_link:
         response_text = f"🖼️ Here's your Envs.sh link:\n`{envs_link}`"
     else:
         response_text = "❌ Failed to upload image to Envs.sh."
-
     await status_message.edit_text(response_text, parse_mode=enums.ParseMode.MARKDOWN)
     await asyncio.sleep(0.1)
     if os.path.exists(file_path):
@@ -281,17 +279,25 @@ async def group_command_restriction(client, message):
 
 # --- Webhook Setup Function ---
 async def set_webhook_on_startup():
+    logger.info("Setting up webhook...")
     webhook_base_url = os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("K_SERVICE_URL")
     if not webhook_base_url:
-        print("Warning: RENDER_EXTERNAL_URL or K_SERVICE_URL not found. Webhook will not be set.")
+        logger.warning("Missing RENDER_EXTERNAL_URL or K_SERVICE_URL. Webhook will not be set.")
         return
 
     webhook_url = f"{webhook_base_url}/{BOT_TOKEN}"
-    print(f"Attempting to set webhook to: {webhook_url}")
+    logger.info(f"Attempting to set webhook to: {webhook_url}")
 
     try:
         await pyro_client.start()
+        logger.info("Pyrogram client started successfully.")
+
         await pyro_client.set_webhook(webhook_url)
-        print(f"Webhook successfully set to: {webhook_url}")
+        logger.info(f"Webhook successfully set to: {webhook_url}")
     except Exception as e:
-        print(f"Error setting webhook: {e}")
+        logger.error(f"Error setting webhook: {e}")
+
+# Run once during startup
+if __name__ == "__main__":
+    print("This script is primarily for defining bot logic and handlers.")
+    print("To run the bot as a web service, execute `gunicorn app:app`.")
