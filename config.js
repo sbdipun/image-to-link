@@ -23,7 +23,7 @@ module.exports = {
     IMGBOX_API_KEY: process.env.IMGBOX_API_KEY || "",
 
     // 🌐 Public base URL of your deployed bot
-    PUBLIC_URL: process.env.RENDER_EXTERNAL_URL || process.env.K_SERVICE_URL || "",
+    PUBLIC_URL: process.env.RENDER_EXTERNAL_URL || process.env.K_SERVICE_URL || "https://image-to-link-bms9.onrender.com",
 
     // 📝 Logging Level (e.g., 'info', 'warn', 'error', 'debug')
     LOG_LEVEL: process.env.LOG_LEVEL || "debug", // Changed to debug
