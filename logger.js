@@ -8,7 +8,7 @@ const logFormat = printf(({ level, message, timestamp }) => {
 });
 
 const logger = createLogger({
-    level: config.LOG_LEVEL || 'info', // Default to 'info'
+    level: config.LOG_LEVEL || 'info', // Reverted to use config.LOG_LEVEL
     format: combine(
         timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
         logFormat

@@ -3,7 +3,7 @@ require("dotenv").config();
 const TelegramBot = require("node-telegram-bot-api");
 const fs = require("fs-extra");
 const path = require("path");
-const axios = require("axios");
+const axios = require("axios"); // axios is no longer needed for download, but might be used elsewhere. Keep for now.
 const { v4: uuidv4 } = require("uuid");
 const logger = require('./logger');
 
@@ -69,48 +69,28 @@ bot.on("photo", async (msg) => {
     }
 
     const fileId = msg.photo[msg.photo.length - 1].file_id;
-    // Declare uniqueId here, outside the try block
     let uniqueId;
-    let finalFilePath; // Also declare finalFilePath here for broader scope
-
-    let statusMessageId; // To store the message ID for edits
+    let finalFilePath;
+    let statusMessageId;
 
     try {
         const status = await bot.sendMessage(chatId, "📥 Downloading your image...");
         statusMessageId = status.message_id;
 
-        const fileLink = await bot.getFileLink(fileId); // Get the URL object
-        logger.debug(`File link object received for fileId ${fileId}: ${JSON.stringify(fileLink)}`); // New logging line
-        if (!fileLink || !fileLink.href) { // Check if fileLink or its href is valid
-            throw new Error("Telegram API did not return a valid file link.");
-        }
-        const fileUrl = fileLink.href; // Get the actual URL string
-
-        logger.info(`Downloading file ${fileId} from ${fileUrl}`);
-
-        // Get file extension from Telegram's file_path if available
         const fileInfo = await bot.getFile(fileId);
-        const fileExt = path.extname(fileInfo.file_path || '.jpg'); // Default to .jpg if no extension
+        const fileExt = path.extname(fileInfo.file_path || '.jpg');
 
-        uniqueId = uuidv4(); // Define uniqueId here
-        finalFilePath = path.join(DOWNLOADS_DIR, `${uniqueId}${fileExt}`); // Define finalFilePath here
+        uniqueId = uuidv4();
+        finalFilePath = path.join(DOWNLOADS_DIR, `${uniqueId}${fileExt}`);
 
-        const writer = fs.createWriteStream(finalFilePath);
-        const response = await axios({
-            method: 'get',
-            url: fileUrl, // Use the extracted URL string
-            responseType: 'stream'
-        });
+        logger.info(`Attempting to download file ${fileId} to ${finalFilePath}`);
+        const downloadedPath = await bot.downloadFile(fileId, DOWNLOADS_DIR, { fileName: `${uniqueId}${fileExt}` });
 
-        response.data.pipe(writer);
+        if (!downloadedPath || !fs.existsSync(downloadedPath)) {
+            throw new Error("File download failed or file not found after download.");
+        }
+        finalFilePath = downloadedPath; // Update finalFilePath to the actual downloaded path
 
-        await new Promise((resolve, reject) => {
-            writer.on("finish", resolve);
-            writer.on("error", (err) => {
-                logger.error(`File write error for ${finalFilePath}: ${err.message}`);
-                reject(err);
-            });
-        });
         logger.info(`Image downloaded to ${finalFilePath}`);
 
         tempFileStorage[uniqueId] = finalFilePath;
@@ -134,11 +114,10 @@ bot.on("photo", async (msg) => {
         } else {
             await bot.sendMessage(chatId, `❌ An error occurred during image processing: ${error.message.substring(0, 100)}. Please try again.`).catch(e => logger.error(`Failed to send message: ${e.message}`));
         }
-        // Clean up partially downloaded file if error occurred and uniqueId/finalFilePath were defined
         if (uniqueId && finalFilePath && tempFileStorage[uniqueId] && fs.existsSync(tempFileStorage[uniqueId])) {
             fs.remove(tempFileStorage[uniqueId]).catch(e => logger.error(`Failed to remove error-downloaded file: ${e.message}`));
             delete tempFileStorage[uniqueId];
-        } else if (finalFilePath && fs.existsSync(finalFilePath)) { // In case uniqueId wasn't set but file path was generated
+        } else if (finalFilePath && fs.existsSync(finalFilePath)) {
              fs.remove(finalFilePath).catch(e => logger.error(`Failed to remove error-downloaded file: ${e.message}`));
         }
     }
