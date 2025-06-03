@@ -26,5 +26,5 @@ module.exports = {
     PUBLIC_URL: process.env.RENDER_EXTERNAL_URL || process.env.K_SERVICE_URL || "",
 
     // 📝 Logging Level (e.g., 'info', 'warn', 'error', 'debug')
-    LOG_LEVEL: process.env.LOG_LEVEL || "info", // Added
+    LOG_LEVEL: process.env.LOG_LEVEL || "debug", // Changed to debug
 };
