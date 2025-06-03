@@ -2,10 +2,10 @@
 
 const express = require("express");
 const bodyParser = require("body-parser");
-const { Telegraf } = require("telegraf");
 const config = require("./config");
-const { bot } = require("./main"); // Imports the Telegraf instance and handlers
+const { bot } = require("./main"); // Imports the bot instance
 const { connectToDatabase } = require("./db");
+const logger = require('./logger');
 
 const app = express();
 
@@ -13,23 +13,28 @@ const app = express();
 app.use(bodyParser.json());
 
 // --- Connect to MongoDB ---
-connectToDatabase();
+connectToDatabase().catch(err => {
+    logger.error(`Failed to connect to database on startup: ${err.message}`);
+    process.exit(1);
+});
 
 // --- Webhook route: Must match your BOT_TOKEN for Telegram to validate ---
 const WEBHOOK_PATH = `/${config.BOT_TOKEN}`;
 
 app.post(WEBHOOK_PATH, async (req, res) => {
     try {
-        await bot.handleUpdate(req.body);
+        // Process the update using node-telegram-bot-api's processUpdate
+        await bot.processUpdate(req.body);
         res.status(200).json({ status: "ok" });
     } catch (error) {
-        console.error("Error processing update:", error.message);
+        logger.error(`Error processing webhook update: ${error.message}`);
         res.status(500).json({ status: "error", message: error.message });
     }
 });
 
 // --- Health Check / Manual Webhook Setup Route ---
 app.get("/", (req, res) => {
+    logger.info("Health check received.");
     res.send("Telegram Image Uploader Bot is running ✅");
 });
 
@@ -37,31 +42,30 @@ app.get("/", (req, res) => {
 app.get("/setwebhook", async (req, res) => {
     const publicUrl = config.PUBLIC_URL;
 
-    if (!publicUrl) {
-        return res.status(500).send("PUBLIC_URL not set in environment.");
+    if (!publicUrl || publicUrl === "http://localhost:5000") {
+        logger.error("PUBLIC_URL not set in environment or is default localhost. Webhook will not be set correctly.");
+        return res.status(500).send("PUBLIC_URL not set in environment or is default localhost. Cannot set webhook.");
     }
 
     const webhookUrl = `${publicUrl}/${config.BOT_TOKEN}`;
-    const telegramSetWebhookUrl = `https://api.telegram.org/bot${config.BOT_TOKEN}/setWebhook`; 
 
     try {
-        const response = await fetch(telegramSetWebhookUrl, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ url: webhookUrl })
+        // Using bot.setWebHook from node-telegram-bot-api instance
+        // This command tells Telegram where to send updates.
+        // It does NOT start a new server on your end.
+        const result = await bot.setWebHook(webhookUrl, {
+            allowed_updates: ["message", "callback_query"]
         });
 
-        const result = await response.json();
-
-        if (result.ok) {
+        if (result) {
+            logger.info(`✅ Webhook successfully set to: ${webhookUrl}`);
             res.status(200).json({
                 status: "success",
                 webhook_url: webhookUrl,
                 telegram_response: result
             });
         } else {
+            logger.error(`❌ Failed to set webhook. Telegram response was not 'ok'.`);
             res.status(500).json({
                 status: "failed",
                 message: "Failed to set webhook",
@@ -69,7 +73,7 @@ app.get("/setwebhook", async (req, res) => {
             });
         }
     } catch (error) {
-        console.error("Error setting webhook:", error.message);
+        logger.error(`🚨 Error setting webhook: ${error.message}`);
         res.status(500).json({
             status: "error",
             message: error.message
@@ -77,8 +81,8 @@ app.get("/setwebhook", async (req, res) => {
     }
 });
 
-// --- Start the server ---
+// --- Start the Express server ---
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log(`✅ Express server running on port ${PORT}`);
+    logger.info(`✅ Express server running on port ${PORT}`);
 });
