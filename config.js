@@ -8,7 +8,7 @@ module.exports = {
     FORCE_SUB_CHANNEL: process.env.FORCE_SUB_CHANNEL || null, // Changed default to null for easier disablement
 
     // 👤 Owner ID (for /broadcast and /users commands)
-    OWNER_ID: parseInt(process.env.OWNER_ID) || ,
+    OWNER_ID: parseInt(process.env.OWNER_ID) || 123456789,
 
     // 💾 MongoDB URI (for storing user data)
     MONGO_URI: process.env.MONGO_URI || "",
