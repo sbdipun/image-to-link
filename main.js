@@ -8,24 +8,20 @@ const logger = require('./logger'); // Added
 
 const config = require("./config");
 const { uploadToImgbb, uploadToEnvs, uploadToImgbox } = require("./hosts");
-const { addUser, getUser } = require("./db"); // Removed getAllUsers as it's not used here
+const { addUser, getUser } = require("./db");
 
 // Create bot instance in webhook mode
 const bot = new TelegramBot(config.BOT_TOKEN, {
     webHook: {
-        port: process.env.PORT || 5000,
+        // Ensure this port directly uses process.env.PORT
+        port: parseInt(process.env.PORT, 10), // Convert to integer
         host: '0.0.0.0' // Listen on all interfaces
     }
 });
 
-// Setting webhook should ideally be done once, either via a separate script or a dedicated route,
-// not on every bot restart within main.js if it's run as part of a web server.
-// For a webhook setup, the webhook is managed by index.js
-// bot.setWebHook(`${config.PUBLIC_URL}/${config.BOT_TOKEN}`); // Removed from here, handled by index.js/setwebhook.js
-
 const DOWNLOADS_DIR = path.resolve(__dirname, config.DOWNLOADS_DIR); // Use config for downloads dir
 fs.ensureDirSync(DOWNLOADS_DIR);
-logger.info(`Downloads directory ensured: ${DOWNLOADS_DIR}`); // Added logging
+logger.info(`Downloads directory ensured: ${DOWNLOADS_DIR}`);
 
 const tempFileStorage = {}; // Stores { uniqueId: filePath }
 
