@@ -27,14 +27,14 @@ app.post(WEBHOOK_PATH, async (req, res) => {
         await bot.processUpdate(req.body);
         res.status(200).json({ status: "ok" });
     } catch (error) {
-        logger.error(`Error processing webhook update: ${error.message}`); // Changed console.error to logger.error
+        logger.error(`Error processing webhook update: ${error.message}`);
         res.status(500).json({ status: "error", message: error.message });
     }
 });
 
 // --- Health Check / Manual Webhook Setup Route ---
 app.get("/", (req, res) => {
-    logger.info("Health check received."); // Added logging
+    logger.info("Health check received.");
     res.send("Telegram Image Uploader Bot is running ✅");
 });
 
@@ -56,14 +56,14 @@ app.get("/setwebhook", async (req, res) => {
         });
 
         if (result) {
-            logger.info(`✅ Webhook successfully set to: ${webhookUrl}`); // Changed console.log to logger.info
+            logger.info(`✅ Webhook successfully set to: ${webhookUrl}`);
             res.status(200).json({
                 status: "success",
                 webhook_url: webhookUrl,
                 telegram_response: result
             });
         } else {
-            logger.error(`❌ Failed to set webhook. Telegram response was not 'ok'.`); // Changed console.error to logger.error
+            logger.error(`❌ Failed to set webhook. Telegram response was not 'ok'.`);
             res.status(500).json({
                 status: "failed",
                 message: "Failed to set webhook",
@@ -71,7 +71,7 @@ app.get("/setwebhook", async (req, res) => {
             });
         }
     } catch (error) {
-        logger.error(`🚨 Error setting webhook: ${error.message}`); // Changed console.error to logger.error
+        logger.error(`🚨 Error setting webhook: ${error.message}`);
         res.status(500).json({
             status: "error",
             message: error.message
@@ -80,7 +80,7 @@ app.get("/setwebhook", async (req, res) => {
 });
 
 // --- Start the server ---
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5000; // This defines the port for the Express server
 app.listen(PORT, () => {
-    logger.info(`✅ Express server running on port ${PORT}`); // Changed console.log to logger.info
+    logger.info(`✅ Express server running on port ${PORT}`);
 });
