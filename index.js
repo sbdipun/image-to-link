@@ -38,51 +38,31 @@ app.get("/", (req, res) => {
     res.send("Telegram Image Uploader Bot is running ✅");
 });
 
-// --- Set Webhook Manually (Useful after deployment) ---
-app.get("/setwebhook", async (req, res) => {
-    const publicUrl = config.PUBLIC_URL;
-
-    if (!publicUrl || publicUrl === "http://localhost:5000") {
-        logger.error("PUBLIC_URL not set in environment or is default localhost. Webhook will not be set correctly.");
-        return res.status(500).send("PUBLIC_URL not set in environment or is default localhost. Cannot set webhook.");
-    }
-
-    const webhookUrl = `${publicUrl}/${config.BOT_TOKEN}`;
-
-    try {
-        // Using bot.setWebHook from node-telegram-bot-api instance
-        // This command tells Telegram where to send updates.
-        // It does NOT start a new server on your end.
-        const result = await bot.setWebHook(webhookUrl, {
-            allowed_updates: ["message", "callback_query"]
-        });
-
-        if (result) {
-            logger.info(`✅ Webhook successfully set to: ${webhookUrl}`);
-            res.status(200).json({
-                status: "success",
-                webhook_url: webhookUrl,
-                telegram_response: result
-            });
-        } else {
-            logger.error(`❌ Failed to set webhook. Telegram response was not 'ok'.`);
-            res.status(500).json({
-                status: "failed",
-                message: "Failed to set webhook",
-                telegram_response: result
-            });
-        }
-    } catch (error) {
-        logger.error(`🚨 Error setting webhook: ${error.message}`);
-        res.status(500).json({
-            status: "error",
-            message: error.message
-        });
-    }
-});
-
 // --- Start the Express server ---
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     logger.info(`✅ Express server running on port ${PORT}`);
+
+    // Attempt to set webhook after a short delay to ensure server is fully up
+    setTimeout(async () => {
+        const publicUrl = config.PUBLIC_URL;
+        if (!publicUrl || publicUrl === "http://localhost:5000") {
+            logger.error("PUBLIC_URL not set in environment or is default localhost. Webhook will not be set correctly.");
+            return; // Don't exit, just log and continue
+        }
+
+        const webhookUrl = `${publicUrl}/${config.BOT_TOKEN}`;
+        try {
+            const result = await bot.setWebHook(webhookUrl, {
+                allowed_updates: ["message", "callback_query"]
+            });
+            if (result) {
+                logger.info(`✅ Webhook successfully set to: ${webhookUrl}`);
+            } else {
+                logger.error(`❌ Failed to set webhook. Telegram response was not 'ok'.`);
+            }
+        } catch (error) {
+            logger.error(`🚨 Error setting webhook automatically: ${error.message}`);
+        }
+    }, 5000); // 5-second delay
 });
