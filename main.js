@@ -80,6 +80,7 @@ bot.on("photo", async (msg) => {
         statusMessageId = status.message_id;
 
         const fileLink = await bot.getFileLink(fileId); // Get the URL object
+        logger.debug(`File link object received for fileId ${fileId}: ${JSON.stringify(fileLink)}`); // New logging line
         if (!fileLink || !fileLink.href) { // Check if fileLink or its href is valid
             throw new Error("Telegram API did not return a valid file link.");
         }
