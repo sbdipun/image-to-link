@@ -11,10 +11,7 @@ async function connectToDatabase() {
         throw new Error("MONGO_URI not found in config.");
     }
 
-    client = new MongoClient(config.MONGO_URI, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-    });
+    client = new MongoClient(config.MONGO_URI);
 
     try {
         await client.connect();

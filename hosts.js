@@ -6,9 +6,10 @@ const axios = require("axios");
 const FormData = require("form-data");
 const { v4: uuidv4 } = require("uuid");
 
-// Import API keys from config.js or environment variables
-const IMGBB_API_KEY = process.env.IMGBB_API_KEY;
-const IMGBOX_API_KEY = process.env.IMGBOX_API_KEY;
+// Import API keys from config.js
+const config = require("./config");
+const IMGBB_API_KEY = config.IMGBB_API_KEY;
+const IMGBOX_API_KEY = config.IMGBOX_API_KEY;
 
 // --- Upload to ImgBB ---
 async function uploadToImgbb(imagePath) {
@@ -61,9 +62,16 @@ async function uploadToEnvs({ imagePath = null, imageUrl = null }) {
             // Upload via local file
             const fileBuffer = await fs.readFile(imagePath);
             const fileName = path.basename(imagePath);
+            // Determine content type based on file extension
+            const ext = path.extname(imagePath).toLowerCase();
+            let contentType = "application/octet-stream"; // Default
+            if (ext === ".jpg" || ext === ".jpeg") contentType = "image/jpeg";
+            else if (ext === ".png") contentType = "image/png";
+            else if (ext === ".gif") contentType = "image/gif";
+
             formData.append("file", fileBuffer, {
                 filename: fileName,
-                contentType: "image/jpeg",
+                contentType: contentType,
             });
             console.log(`Uploading local file to Envs.sh: ${imagePath}`);
         } else {
@@ -80,17 +88,8 @@ async function uploadToEnvs({ imagePath = null, imageUrl = null }) {
             if (!cleanedUrl.startsWith("http")) {
                 cleanedUrl = `https://${cleanedUrl}`;
             }
-
-            // Generate custom filename
-            const now = new Date();
-            const formattedDate = now.toISOString().slice(0, 10).replace(/-/g, ""); // YYYYMMDD
-            const randomSuffix = Math.floor(Math.random() * 1000); // 0 - 999
-            const ext = imagePath ? path.extname(imagePath) : ".jpg";
-            const customFileName = `IMG${formattedDate}${randomSuffix}${ext}`;
-
-            const finalLink = `${cleanedUrl}/${customFileName}`;
-            console.log(`Envs.sh upload successful: ${finalLink}`);
-            return finalLink;
+            console.log(`Envs.sh upload successful: ${cleanedUrl}`);
+            return cleanedUrl;
         } else {
             console.error("Envs.sh upload failed:", response.statusText);
             return null;

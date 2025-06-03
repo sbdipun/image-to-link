@@ -12,6 +12,8 @@ module.exports = {
 
     // 💾 MongoDB URI (for storing user data)
     MONGO_URI: process.env.MONGO_URI || "mongodb://localhost:27017/imagebot",
+    MONGO_DB_NAME: process.env.MONGO_DB_NAME || "telegram_image_bot",
+    MONGO_COLLECTION_USERS: process.env.MONGO_COLLECTION_USERS || "users",
 
     // 📁 Local directory for image downloads
     DOWNLOADS_DIR: "downloads",
