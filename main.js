@@ -1,12 +1,6 @@
-<<<<<<< HEAD
-
-require("dotenv").config();
-const { Telegraf } = require("telegraf");
-=======
 // main.js
 require("dotenv").config();
 const TelegramBot = require("node-telegram-bot-api");
->>>>>>> c1c2c4b2ead5bf928765aa4f26938dce11eae232
 const fs = require("fs-extra");
 const path = require("path");
 const axios = require("axios");
@@ -15,14 +9,6 @@ const logger = require('./logger');
 
 const config = require("./config");
 const { uploadToImgbb, uploadToEnvs, uploadToImgbox } = require("./hosts");
-<<<<<<< HEAD
-const { addUser, getUser, getAllUsers } = require("./db");
-
-// Create bot instance
-const bot = new Telegraf(config.BOT_TOKEN);
-
-const DOWNLOADS_DIR = path.resolve(__dirname, "downloads");
-=======
 const { addUser, getUser } = require("./db");
 
 // Create bot instance without webhook configuration.
@@ -30,133 +16,29 @@ const { addUser, getUser } = require("./db");
 const bot = new TelegramBot(config.BOT_TOKEN); // No webHook config here
 
 const DOWNLOADS_DIR = path.resolve(__dirname, config.DOWNLOADS_DIR);
->>>>>>> c1c2c4b2ead5bf928765aa4f26938dce11eae232
 fs.ensureDirSync(DOWNLOADS_DIR);
 logger.info(`Downloads directory ensured: ${DOWNLOADS_DIR}`);
 
-<<<<<<< HEAD
-const tempFileStorage = {};
+const tempFileStorage = {}; // Stores { uniqueId: filePath }
 
 async function isSubscribed(userId) {
     if (!config.FORCE_SUB_CHANNEL) {
         return true; // No force subscribe channel configured
     }
     try {
-        const chatMember = await bot.telegram.getChatMember(config.FORCE_SUB_CHANNEL, userId);
+        logger.debug(`Force subscribe check for user ${userId} in channel ${config.FORCE_SUB_CHANNEL}`);
+        const chatMember = await bot.getChatMember(config.FORCE_SUB_CHANNEL, userId); // Use bot.getChatMember for node-telegram-bot-api
         const status = chatMember.status;
         return status === "member" || status === "administrator" || status === "creator";
     } catch (error) {
-        console.error(`Error checking subscription for user ${userId} in channel ${config.FORCE_SUB_CHANNEL}:`, error.message);
+        logger.error(`Error checking subscription for user ${userId} in channel ${config.FORCE_SUB_CHANNEL}: ${error.message}`);
         // If there's an error (e.g., bot not admin in channel, channel not found),
         // it's safer to assume they are not subscribed or handle as per policy.
         // For now, returning false on error to enforce subscription.
-=======
-const tempFileStorage = {}; // Stores { uniqueId: filePath }
-
-async function isSubscribed(userId) {
-    if (!config.FORCE_SUB_CHANNEL) {
-        return true;
-    }
-    try {
-        logger.debug(`Force subscribe check for user ${userId} in channel ${config.FORCE_SUB_CHANNEL}`);
-        // Implement real subscription check here if needed
-        return true;
-    } catch (error) {
-        logger.error(`Error checking subscription for user ${userId}: ${error.message}`);
->>>>>>> c1c2c4b2ead5bf928765aa4f26938dce11eae232
         return false;
     }
 }
 
-<<<<<<< HEAD
-bot.start(async (ctx) => {
-    const userId = ctx.from.id;
-    await addUser(userId);
-
-    if (config.FORCE_SUB_CHANNEL && !isSubscribed(userId)) {
-        return ctx.reply("🚫 Please join our channel first.");
-    }
-
-    const welcomeText = "👋 Hello! Send me an image to upload it to ImgBB, Envs.sh or Imgbox.";
-    ctx.reply(welcomeText);
-});
-
-bot.on("photo", async (ctx) => {
-    const userId = ctx.from.id;
-    const chatId = ctx.chat.id;
-
-    if (config.FORCE_SUB_CHANNEL && !isSubscribed(userId)) {
-        return ctx.reply("🚫 Please join our channel first.");
-    }
-
-    const fileId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
-    const fileUrl = await ctx.telegram.getFileLink(fileId);
-    const fileName = uuidv4() + ".jpg";
-    const filePath = path.join(DOWNLOADS_DIR, fileName);
-
-    const status = await ctx.reply("📥 Downloading your image...");
-
-    const writer = fs.createWriteStream(filePath);
-    const response = await axios.get(fileUrl.href, { responseType: "stream" });
-    response.data.pipe(writer);
-
-    await new Promise((resolve, reject) => {
-        writer.on("finish", resolve);
-        writer.on("error", reject);
-    });
-
-    const uniqueId = uuidv4();
-    tempFileStorage[uniqueId] = filePath;
-
-    ctx.editMessageText("✅ Image downloaded. Choose host:", {
-        chat_id: chatId,
-        message_id: status.message_id,
-        reply_markup: {
-            inline_keyboard: [
-                [{ text: "Upload to ImgBB", callback_data: `upload_imgbb:${uniqueId}` }],
-                [{ text: "Upload to Envs.sh", callback_data: `upload_envs:${uniqueId}` }],
-                [{ text: "Upload to Imgbox", callback_data: `upload_imgbox:${uniqueId}` }],
-                [{ text: "🗑️ Delete", callback_data: `delete_image:${uniqueId}` }]
-            ]
-        }
-    });
-});
-
-bot.on("callback_query", async (ctx) => {
-    const chatId = ctx.callbackQuery.message.chat.id;
-    const messageId = ctx.callbackQuery.message.message_id;
-    const data = ctx.callbackQuery.data;
-
-    if (data.startsWith("upload_")) {
-        const [_, host, fileKey] = data.split(":");
-        const filePath = tempFileStorage[fileKey];
-        if (!filePath || !fs.existsSync(filePath)) {
-            return ctx.editMessageText("❌ Image not found. Please resend.", { chat_id: chatId, message_id: messageId });
-        }
-
-        ctx.editMessageText(`⬆️ Uploading to ${host.toUpperCase()}...`, { chat_id: chatId, message_id: messageId });
-
-        let link = null;
-        if (host === "imgbb") link = await uploadToImgbb(filePath);
-        else if (host === "envs") link = await uploadToEnvs({ imagePath: filePath });
-        else if (host === "imgbox") link = await uploadToImgbox(filePath);
-
-        if (link) {
-            ctx.editMessageText(`✅ Uploaded:
-${link}`, {
-                chat_id: chatId,
-                message_id: messageId,
-                reply_markup: {
-                    inline_keyboard: [[{ text: "Open Link", url: link }]]
-                }
-            });
-        } else {
-            ctx.editMessageText("❌ Upload failed.", { chat_id: chatId, message_id: messageId });
-        }
-
-        delete tempFileStorage[fileKey];
-        fs.remove(filePath);
-=======
 bot.onText(/\/start/, async (msg) => {
     const userId = msg.from.id;
     const chatId = msg.chat.id;
@@ -174,24 +56,9 @@ bot.onText(/\/start/, async (msg) => {
     } catch (error) {
         logger.error(`Error handling /start for user ${userId}: ${error.message}`);
         bot.sendMessage(chatId, "An error occurred while starting the bot. Please try again later.");
->>>>>>> c1c2c4b2ead5bf928765aa4f26938dce11eae232
-    }
-
-<<<<<<< HEAD
-    if (data.startsWith("delete_image:")) {
-        const fileKey = data.split(":")[1];
-        const filePath = tempFileStorage[fileKey];
-        if (filePath && fs.existsSync(filePath)) {
-            fs.remove(filePath);
-            ctx.editMessageText("🗑️ Image deleted.", { chat_id: chatId, message_id: messageId });
-        } else {
-            ctx.editMessageText("⚠️ Image already deleted.", { chat_id: chatId, message_id: messageId });
-        }
-        delete tempFileStorage[fileKey];
     }
 });
 
-=======
 bot.on("photo", async (msg) => {
     const userId = msg.from.id;
     const chatId = msg.chat.id;
@@ -364,6 +231,4 @@ bot.on("callback_query", async (callback) => {
 
 bot.on("polling_error", (err) => logger.error(`Polling Error: ${err.message}`));
 bot.on("webhook_error", (err) => logger.error(`Webhook Error: ${err.message}`)); // This handler will likely not be hit if webhook is handled by Express.
-
->>>>>>> c1c2c4b2ead5bf928765aa4f26938dce11eae232
 module.exports = { bot };

@@ -88,22 +88,8 @@ async function uploadToEnvs({ imagePath = null, imageUrl = null }) {
             if (!cleanedUrl.startsWith("http")) {
                 cleanedUrl = `https://${cleanedUrl}`;
             }
-<<<<<<< HEAD
             console.log(`Envs.sh upload successful: ${cleanedUrl}`);
             return cleanedUrl;
-=======
-
-            // Generate custom filename
-            const now = new Date();
-            const formattedDate = now.toISOString().slice(0, 10).replace(/-/g, ""); // YYYYMMDD
-            const randomSuffix = Math.floor(Math.random() * 1000); // 0 - 999
-            const ext = imagePath ? path.extname(imagePath) : ".jpg"; // Fallback to .jpg
-            const customFileName = `IMG${formattedDate}${randomSuffix}${ext}`;
-
-            const finalLink = `${cleanedUrl}/${customFileName}`;
-            logger.info(`Envs.sh upload successful: ${finalLink}`); // Changed console.log to logger.info
-            return finalLink;
->>>>>>> c1c2c4b2ead5bf928765aa4f26938dce11eae232
         } else {
             logger.error(`Envs.sh upload failed: ${response.statusText}`); // Changed console.error to logger.error
             return null;

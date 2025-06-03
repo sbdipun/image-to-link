@@ -11,15 +11,9 @@ module.exports = {
     OWNER_ID: parseInt(process.env.OWNER_ID) || 123456789,
 
     // 💾 MongoDB URI (for storing user data)
-<<<<<<< HEAD
     MONGO_URI: process.env.MONGO_URI || "mongodb://localhost:27017/imagebot",
     MONGO_DB_NAME: process.env.MONGO_DB_NAME || "telegram_image_bot",
     MONGO_COLLECTION_USERS: process.env.MONGO_COLLECTION_USERS || "users",
-=======
-    MONGO_URI: process.env.MONGO_URI || "",
-    MONGO_DB_NAME: process.env.MONGO_DB_NAME || "", // Added
-    MONGO_COLLECTION_USERS: process.env.MONGO_COLLECTION_USERS || "", // Added
->>>>>>> c1c2c4b2ead5bf928765aa4f26938dce11eae232
 
     // 📁 Local directory for image downloads
     DOWNLOADS_DIR: "downloads", // This is usually managed by fs-extra in main.js, but kept here for consistency.

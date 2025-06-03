@@ -13,11 +13,7 @@ async function connectToDatabase() {
         throw new Error("MONGO_URI not found in config.");
     }
 
-<<<<<<< HEAD
     client = new MongoClient(config.MONGO_URI);
-=======
-    client = new MongoClient(config.MONGO_URI); // useNewUrlParser and useUnifiedTopology are deprecated in recent MongoDB drivers
->>>>>>> c1c2c4b2ead5bf928765aa4f26938dce11eae232
 
     try {
         await client.connect();
