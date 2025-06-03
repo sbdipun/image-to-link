@@ -4,7 +4,7 @@ const fs = require("fs/promises");
 const path = require("path");
 const axios = require("axios");
 const FormData = require("form-data");
-const { v4: uuidv4 } = require("uuid");
+const logger = require('./logger'); // Added
 
 // Import API keys from config.js or environment variables
 const IMGBB_API_KEY = process.env.IMGBB_API_KEY;
@@ -13,7 +13,7 @@ const IMGBOX_API_KEY = process.env.IMGBOX_API_KEY;
 // --- Upload to ImgBB ---
 async function uploadToImgbb(imagePath) {
     if (!IMGBB_API_KEY) {
-        console.log("ImgBB API key not configured.");
+        logger.warn("ImgBB API key not configured. Skipping ImgBB upload."); // Changed console.log to logger.warn
         return null;
     }
 
@@ -24,7 +24,7 @@ async function uploadToImgbb(imagePath) {
 
         formData.append("image", file, {
             filename: fileName,
-            contentType: "image/png",
+            contentType: "image/png", // Use image/jpeg for .jpg files
         });
 
         const url = `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`;
@@ -34,14 +34,14 @@ async function uploadToImgbb(imagePath) {
 
         if (response.status === 200 && response.data.success) {
             const imageUrl = response.data.data.url;
-            console.log(`ImgBB upload successful: ${imageUrl}`);
+            logger.info(`ImgBB upload successful: ${imageUrl}`); // Changed console.log to logger.info
             return imageUrl;
         } else {
-            console.error("ImgBB upload failed:", response.data.error.message);
+            logger.error(`ImgBB upload failed: ${response.data.error?.message || 'Unknown error'}`); // Changed console.error to logger.error
             return null;
         }
     } catch (error) {
-        console.error("Error uploading to ImgBB:", error.message);
+        logger.error(`Error uploading to ImgBB: ${error.message}`); // Changed console.error to logger.error
         return null;
     }
 }
@@ -56,7 +56,7 @@ async function uploadToEnvs({ imagePath = null, imageUrl = null }) {
         if (imageUrl) {
             // Upload via remote URL
             formData.append("url", imageUrl);
-            console.log(`Uploading remote URL to Envs.sh: ${imageUrl}`);
+            logger.info(`Uploading remote URL to Envs.sh: ${imageUrl}`); // Changed console.log to logger.info
         } else if (imagePath) {
             // Upload via local file
             const fileBuffer = await fs.readFile(imagePath);
@@ -65,9 +65,9 @@ async function uploadToEnvs({ imagePath = null, imageUrl = null }) {
                 filename: fileName,
                 contentType: "image/jpeg",
             });
-            console.log(`Uploading local file to Envs.sh: ${imagePath}`);
+            logger.info(`Uploading local file to Envs.sh: ${imagePath}`); // Changed console.log to logger.info
         } else {
-            console.error("No image URL or file path provided for Envs.sh upload.");
+            logger.error("No image URL or file path provided for Envs.sh upload."); // Changed console.error to logger.error
             return null;
         }
 
@@ -85,18 +85,18 @@ async function uploadToEnvs({ imagePath = null, imageUrl = null }) {
             const now = new Date();
             const formattedDate = now.toISOString().slice(0, 10).replace(/-/g, ""); // YYYYMMDD
             const randomSuffix = Math.floor(Math.random() * 1000); // 0 - 999
-            const ext = imagePath ? path.extname(imagePath) : ".jpg";
+            const ext = imagePath ? path.extname(imagePath) : ".jpg"; // Fallback to .jpg
             const customFileName = `IMG${formattedDate}${randomSuffix}${ext}`;
 
             const finalLink = `${cleanedUrl}/${customFileName}`;
-            console.log(`Envs.sh upload successful: ${finalLink}`);
+            logger.info(`Envs.sh upload successful: ${finalLink}`); // Changed console.log to logger.info
             return finalLink;
         } else {
-            console.error("Envs.sh upload failed:", response.statusText);
+            logger.error(`Envs.sh upload failed: ${response.statusText}`); // Changed console.error to logger.error
             return null;
         }
     } catch (error) {
-        console.error("Error uploading to Envs.sh:", error.message);
+        logger.error(`Error uploading to Envs.sh: ${error.message}`); // Changed console.error to logger.error
         return null;
     }
 }
@@ -104,7 +104,7 @@ async function uploadToEnvs({ imagePath = null, imageUrl = null }) {
 // --- Upload to Imgbox ---
 async function uploadToImgbox(imagePath) {
     if (!IMGBOX_API_KEY) {
-        console.log("Imgbox API key not configured.");
+        logger.warn("Imgbox API key not configured. Skipping Imgbox upload."); // Changed console.log to logger.warn
         return null;
     }
 
@@ -126,27 +126,27 @@ async function uploadToImgbox(imagePath) {
 
         if (response.status === 200 && response.data.success) {
             const imageUrl = response.data.image.url;
-            console.log(`Imgbox upload successful: ${imageUrl}`);
+            logger.info(`Imgbox upload successful: ${imageUrl}`); // Changed console.log to logger.info
             return imageUrl;
         } else {
-            console.error("Imgbox upload failed:", response.data.error.message || "Unknown error");
+            logger.error(`Imgbox upload failed: ${response.data.error?.message || "Unknown error"}`); // Changed console.error to logger.error
             return null;
         }
     } catch (error) {
-        console.error("Error uploading to Imgbox:", error.message);
+        logger.error(`Error uploading to Imgbox: ${error.message}`); // Changed console.error to logger.error
         return null;
     }
 }
 
 // --- Placeholder for FreeImageHost ---
 function uploadToFreeImageHost(imagePath) {
-    console.warn("FreeImageHost upload is not implemented yet.");
+    logger.warn("FreeImageHost upload is not implemented yet."); // Changed console.warn to logger.warn
     return null;
 }
 
 // --- Placeholder for Catbox ---
 function uploadToCatbox(imagePath) {
-    console.warn("Catbox upload is not implemented yet.");
+    logger.warn("Catbox upload is not implemented yet."); // Changed console.warn to logger.warn
     return null;
 }
 
