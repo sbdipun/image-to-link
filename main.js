@@ -65,26 +65,35 @@ bot.on("photo", async (msg) => {
     }
 
     const fileId = msg.photo[msg.photo.length - 1].file_id;
-    const fileName = uuidv4();
-    const filePath = path.join(DOWNLOADS_DIR, fileName);
+    // Declare uniqueId here, outside the try block
+    let uniqueId;
+    let finalFilePath; // Also declare finalFilePath here for broader scope
 
-    let statusMessageId;
+    let statusMessageId; // To store the message ID for edits
 
     try {
         const status = await bot.sendMessage(chatId, "📥 Downloading your image...");
         statusMessageId = status.message_id;
 
-        const fileUrl = await bot.getFileLink(fileId);
-        logger.info(`Downloading file ${fileId} from ${fileUrl.href}`);
+        const fileLink = await bot.getFileLink(fileId); // Get the URL object
+        if (!fileLink || !fileLink.href) { // Check if fileLink or its href is valid
+            throw new Error("Telegram API did not return a valid file link.");
+        }
+        const fileUrl = fileLink.href; // Get the actual URL string
 
+        logger.info(`Downloading file ${fileId} from ${fileUrl}`);
+
+        // Get file extension from Telegram's file_path if available
         const fileInfo = await bot.getFile(fileId);
-        const fileExt = path.extname(fileInfo.file_path || '.jpg');
+        const fileExt = path.extname(fileInfo.file_path || '.jpg'); // Default to .jpg if no extension
 
-        const finalFilePath = `${filePath}${fileExt}`;
+        uniqueId = uuidv4(); // Define uniqueId here
+        finalFilePath = path.join(DOWNLOADS_DIR, `${uniqueId}${fileExt}`); // Define finalFilePath here
+
         const writer = fs.createWriteStream(finalFilePath);
         const response = await axios({
             method: 'get',
-            url: fileUrl.href,
+            url: fileUrl, // Use the extracted URL string
             responseType: 'stream'
         });
 
@@ -99,7 +108,6 @@ bot.on("photo", async (msg) => {
         });
         logger.info(`Image downloaded to ${finalFilePath}`);
 
-        const uniqueId = uuidv4();
         tempFileStorage[uniqueId] = finalFilePath;
 
         await bot.editMessageText("✅ Image downloaded. Choose host:", {
@@ -117,13 +125,16 @@ bot.on("photo", async (msg) => {
     } catch (error) {
         logger.error(`Error processing photo for user ${userId}: ${error.message}`);
         if (statusMessageId) {
-            await bot.editMessageText("❌ An error occurred during image processing.", { chat_id: chatId, message_id: statusMessageId }).catch(e => logger.error(`Failed to edit message: ${e.message}`));
+            await bot.editMessageText(`❌ An error occurred during image processing: ${error.message.substring(0, 100)}`, { chat_id: chatId, message_id: statusMessageId }).catch(e => logger.error(`Failed to edit message: ${e.message}`));
         } else {
-            await bot.sendMessage(chatId, "❌ An error occurred during image processing. Please try again.").catch(e => logger.error(`Failed to send message: ${e.message}`));
+            await bot.sendMessage(chatId, `❌ An error occurred during image processing: ${error.message.substring(0, 100)}. Please try again.`).catch(e => logger.error(`Failed to send message: ${e.message}`));
         }
-        if (tempFileStorage[uniqueId] && fs.existsSync(tempFileStorage[uniqueId])) {
+        // Clean up partially downloaded file if error occurred and uniqueId/finalFilePath were defined
+        if (uniqueId && finalFilePath && tempFileStorage[uniqueId] && fs.existsSync(tempFileStorage[uniqueId])) {
             fs.remove(tempFileStorage[uniqueId]).catch(e => logger.error(`Failed to remove error-downloaded file: ${e.message}`));
             delete tempFileStorage[uniqueId];
+        } else if (finalFilePath && fs.existsSync(finalFilePath)) { // In case uniqueId wasn't set but file path was generated
+             fs.remove(finalFilePath).catch(e => logger.error(`Failed to remove error-downloaded file: ${e.message}`));
         }
     }
 });
