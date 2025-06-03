@@ -1,49 +1,37 @@
+// main.js
 require("dotenv").config();
 const TelegramBot = require("node-telegram-bot-api");
 const fs = require("fs-extra");
 const path = require("path");
 const axios = require("axios");
 const { v4: uuidv4 } = require("uuid");
-const logger = require('./logger'); // Added
+const logger = require('./logger');
 
 const config = require("./config");
 const { uploadToImgbb, uploadToEnvs, uploadToImgbox } = require("./hosts");
 const { addUser, getUser } = require("./db");
 
-// Create bot instance in webhook mode
-const bot = new TelegramBot(config.BOT_TOKEN, {
-    webHook: {
-        // Ensure this port directly uses process.env.PORT
-        port: parseInt(process.env.PORT, 10), // Convert to integer
-        host: '0.0.0.0' // Listen on all interfaces
-    }
-});
+// Create bot instance without webhook configuration.
+// The webhook will be handled by the Express server in index.js
+const bot = new TelegramBot(config.BOT_TOKEN); // No webHook config here
 
-const DOWNLOADS_DIR = path.resolve(__dirname, config.DOWNLOADS_DIR); // Use config for downloads dir
+const DOWNLOADS_DIR = path.resolve(__dirname, config.DOWNLOADS_DIR);
 fs.ensureDirSync(DOWNLOADS_DIR);
 logger.info(`Downloads directory ensured: ${DOWNLOADS_DIR}`);
 
 const tempFileStorage = {}; // Stores { uniqueId: filePath }
 
-/**
- * Checks if a user is subscribed to the FORCE_SUB_CHANNEL.
- * This is a placeholder and needs actual implementation for a real force sub.
- * @param {number} userId - The Telegram user ID.
- * @returns {Promise<boolean>} True if subscribed, false otherwise.
- */
 async function isSubscribed(userId) {
     if (!config.FORCE_SUB_CHANNEL) {
-        return true; // Force subscribe is disabled
+        return true;
     }
     try {
-        // This is a simplified check. A real check would involve:
-        // const chatMember = await bot.getChatMember(config.FORCE_SUB_CHANNEL, userId);
-        // return ['member', 'administrator', 'creator'].includes(chatMember.status);
         logger.debug(`Force subscribe check for user ${userId} in channel ${config.FORCE_SUB_CHANNEL}`);
-        return true; // For now, always return true as per original logic if actual check is not implemented.
+        // Implement real subscription check here if needed
+        return true;
     } catch (error) {
         logger.error(`Error checking subscription for user ${userId}: ${error.message}`);
-        return false; // Assume not subscribed on error
+        return false;
     }
 }
 
@@ -53,7 +41,7 @@ bot.onText(/\/start/, async (msg) => {
     logger.info(`Received /start from user: ${userId}`);
 
     try {
-        await addUser(userId); // Add user to DB
+        await addUser(userId);
 
         if (config.FORCE_SUB_CHANNEL && !(await isSubscribed(userId))) {
             return bot.sendMessage(chatId, `🚫 Please join our channel first: ${config.FORCE_SUB_CHANNEL}`);
@@ -77,23 +65,22 @@ bot.on("photo", async (msg) => {
     }
 
     const fileId = msg.photo[msg.photo.length - 1].file_id;
-    const fileName = uuidv4(); // Generate unique name, extension added after download
+    const fileName = uuidv4();
     const filePath = path.join(DOWNLOADS_DIR, fileName);
 
-    let statusMessageId; // To store the message ID for edits
+    let statusMessageId;
 
     try {
         const status = await bot.sendMessage(chatId, "📥 Downloading your image...");
         statusMessageId = status.message_id;
 
         const fileUrl = await bot.getFileLink(fileId);
-        logger.info(`Downloading file ${fileId} to ${filePath}`);
+        logger.info(`Downloading file ${fileId} from ${fileUrl.href}`);
 
-        // Get file extension from Telegram's file_path if available
         const fileInfo = await bot.getFile(fileId);
-        const fileExt = path.extname(fileInfo.file_path || '.jpg'); // Default to .jpg if no extension
+        const fileExt = path.extname(fileInfo.file_path || '.jpg');
 
-        const finalFilePath = `${filePath}${fileExt}`; // Add extension
+        const finalFilePath = `${filePath}${fileExt}`;
         const writer = fs.createWriteStream(finalFilePath);
         const response = await axios({
             method: 'get',
@@ -134,7 +121,6 @@ bot.on("photo", async (msg) => {
         } else {
             await bot.sendMessage(chatId, "❌ An error occurred during image processing. Please try again.").catch(e => logger.error(`Failed to send message: ${e.message}`));
         }
-        // Clean up partially downloaded file if error occurred
         if (tempFileStorage[uniqueId] && fs.existsSync(tempFileStorage[uniqueId])) {
             fs.remove(tempFileStorage[uniqueId]).catch(e => logger.error(`Failed to remove error-downloaded file: ${e.message}`));
             delete tempFileStorage[uniqueId];
@@ -150,7 +136,6 @@ bot.on("callback_query", async (callback) => {
 
     logger.info(`Received callback query from user ${userId}: ${data}`);
 
-    // Always answer the callback query to remove the loading indicator from the button
     await bot.answerCallbackQuery(callback.id).catch(e => logger.error(`Failed to answer callback query: ${e.message}`));
 
     if (data.startsWith("upload_")) {
@@ -189,7 +174,7 @@ bot.on("callback_query", async (callback) => {
                     reply_markup: {
                         inline_keyboard: [[{ text: "Open Link", url: link }]]
                     },
-                    disable_web_page_preview: false // Allow preview for links
+                    disable_web_page_preview: false
                 });
                 logger.info(`Image uploaded to ${host.toUpperCase()} for user ${userId}: ${link}`);
             } else {
@@ -200,7 +185,6 @@ bot.on("callback_query", async (callback) => {
             logger.error(`Error during upload to ${host.toUpperCase()} for user ${userId}: ${error.message}`);
             await bot.editMessageText(`❌ An error occurred during upload to ${host.toUpperCase()}.`, { chat_id: chatId, message_id: messageId });
         } finally {
-            // Clean up the temporary file regardless of upload success or failure
             if (fs.existsSync(filePath)) {
                 fs.remove(filePath)
                     .then(() => logger.info(`Cleaned up temp file: ${filePath}`))
@@ -225,14 +209,12 @@ bot.on("callback_query", async (callback) => {
         } else {
             await bot.editMessageText("⚠️ Image already deleted or not found.", { chat_id: chatId, message_id: messageId });
             logger.warn(`Attempted to delete non-existent image for key ${fileKey} by user ${userId}.`);
-            delete tempFileStorage[fileKey]; // Ensure it's removed from temp storage even if file is gone
+            delete tempFileStorage[fileKey];
         }
     }
 });
 
-// Add error handler for uncaught exceptions in bot operations
 bot.on("polling_error", (err) => logger.error(`Polling Error: ${err.message}`));
-bot.on("webhook_error", (err) => logger.error(`Webhook Error: ${err.message}`));
-
+bot.on("webhook_error", (err) => logger.error(`Webhook Error: ${err.message}`)); // This handler will likely not be hit if webhook is handled by Express.
 
 module.exports = { bot };
