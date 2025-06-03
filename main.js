@@ -134,7 +134,11 @@ bot.on("callback_query", async (callback) => {
     await bot.answerCallbackQuery(callback.id).catch(e => logger.error(`Failed to answer callback query: ${e.message}`));
 
     if (data.startsWith("upload_")) {
-        const [_, host, fileKey] = data.split(":");
+        const parts = data.split(":");
+        const actionPrefix = parts[0]; // e.g., "upload_imgbb"
+        const fileKey = parts[1];     // e.g., "f71cada4-4e86-485b-bda7-dbe53984e174"
+        const host = actionPrefix.split("_")[1]; // e.g., "imgbb"
+
         const filePath = tempFileStorage[fileKey];
 
         if (!filePath || !fs.existsSync(filePath)) {
