@@ -21,6 +21,7 @@ module.exports = {
     // 🔗 Optional: Hosting service API keys
     IMGBB_API_KEY: process.env.IMGBB_API_KEY || "",
     IMGBOX_API_KEY: process.env.IMGBOX_API_KEY || "",
+    IMG_UPLOAD_API_KEY: process.env.IMG_UPLOAD_API_KEY || "9aca3b03a1218ed9e916b85c1ed35390", // New ImgHippo API Key
 
     // 🌐 Public base URL of your deployed bot
     PUBLIC_URL: process.env.RENDER_EXTERNAL_URL || process.env.K_SERVICE_URL || "https://image-to-link-bms9.onrender.com",

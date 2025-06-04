@@ -8,7 +8,7 @@ const { v4: uuidv4 } = require("uuid");
 const logger = require('./logger');
 
 const config = require("./config");
-const { uploadToImgbb, uploadToEnvs, uploadToImgbox } = require("./hosts");
+const { uploadToImgbb, uploadToEnvs, uploadToImgbox, uploadToImgHippo } = require("./hosts"); // Added uploadToImgHippo
 const { addUser, getUser } = require("./db");
 
 // Create bot instance without webhook configuration.
@@ -103,6 +103,7 @@ bot.on("photo", async (msg) => {
                     [{ text: "Upload to ImgBB", callback_data: `upload_imgbb:${uniqueId}` }],
                     [{ text: "Upload to Envs.sh", callback_data: `upload_envs:${uniqueId}` }],
                     [{ text: "Upload to Imgbox", callback_data: `upload_imgbox:${uniqueId}` }],
+                    [{ text: "Upload to ImgHippo", callback_data: `upload_imghippo:${uniqueId}` }], // New button
                     [{ text: "🗑️ Delete", callback_data: `delete_image:${uniqueId}` }]
                 ]
             }
@@ -159,6 +160,9 @@ bot.on("callback_query", async (callback) => {
                     break;
                 case "imgbox":
                     link = await uploadToImgbox(filePath);
+                    break;
+                case "imghippo": // New case
+                    link = await uploadToImgHippo(filePath);
                     break;
                 default:
                     logger.warn(`Unknown upload host requested: ${host}`);

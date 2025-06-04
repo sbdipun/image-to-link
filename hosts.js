@@ -1,20 +1,21 @@
 // hosts.js
 
-const fs = require("fs/promises");
+const fs = require("fs/promises"); // Keep fs/promises for consistency with existing code
 const path = require("path");
 const axios = require("axios");
 const FormData = require("form-data");
-const logger = require('./logger'); // Added
+const logger = require('./logger');
 
 // Import API keys from config.js
 const config = require("./config");
 const IMGBB_API_KEY = config.IMGBB_API_KEY;
 const IMGBOX_API_KEY = config.IMGBOX_API_KEY;
+const IMG_UPLOAD_API_KEY = config.IMG_UPLOAD_API_KEY; // New API key
 
 // --- Upload to ImgBB ---
 async function uploadToImgbb(imagePath) {
     if (!IMGBB_API_KEY) {
-        logger.warn("ImgBB API key not configured. Skipping ImgBB upload."); // Changed console.log to logger.warn
+        logger.warn("ImgBB API key not configured. Skipping ImgBB upload.");
         return null;
     }
 
@@ -35,14 +36,14 @@ async function uploadToImgbb(imagePath) {
 
         if (response.status === 200 && response.data.success) {
             const imageUrl = response.data.data.url;
-            logger.info(`ImgBB upload successful: ${imageUrl}`); // Changed console.log to logger.info
+            logger.info(`ImgBB upload successful: ${imageUrl}`);
             return imageUrl;
         } else {
-            logger.error(`ImgBB upload failed: ${response.data.error?.message || 'Unknown error'}`); // Changed console.error to logger.error
+            logger.error(`ImgBB upload failed: ${response.data.error?.message || 'Unknown error'}`);
             return null;
         }
     } catch (error) {
-        logger.error(`Error uploading to ImgBB: ${error.message}`); // Changed console.error to logger.error
+        logger.error(`Error uploading to ImgBB: ${error.message}`);
         return null;
     }
 }
@@ -57,7 +58,7 @@ async function uploadToEnvs({ imagePath = null, imageUrl = null }) {
         if (imageUrl) {
             // Upload via remote URL
             formData.append("url", imageUrl);
-            logger.info(`Uploading remote URL to Envs.sh: ${imageUrl}`); // Changed console.log to logger.info
+            logger.info(`Uploading remote URL to Envs.sh: ${imageUrl}`);
         } else if (imagePath) {
             // Upload via local file
             const fileBuffer = await fs.readFile(imagePath);
@@ -73,9 +74,9 @@ async function uploadToEnvs({ imagePath = null, imageUrl = null }) {
                 filename: fileName,
                 contentType: contentType,
             });
-            logger.info(`Uploading local file to Envs.sh: ${imagePath}`); // Changed console.log to logger.info
+            logger.info(`Uploading local file to Envs.sh: ${imagePath}`);
         } else {
-            logger.error("No image URL or file path provided for Envs.sh upload."); // Changed console.error to logger.error
+            logger.error("No image URL or file path provided for Envs.sh upload.");
             return null;
         }
 
@@ -88,14 +89,14 @@ async function uploadToEnvs({ imagePath = null, imageUrl = null }) {
             if (!cleanedUrl.startsWith("http")) {
                 cleanedUrl = `https://${cleanedUrl}`;
             }
-            console.log(`Envs.sh upload successful: ${cleanedUrl}`);
+            logger.info(`Envs.sh upload successful: ${cleanedUrl}`); // Changed console.log to logger.info
             return cleanedUrl;
         } else {
-            logger.error(`Envs.sh upload failed: ${response.statusText}`); // Changed console.error to logger.error
+            logger.error(`Envs.sh upload failed: ${response.statusText}`);
             return null;
         }
     } catch (error) {
-        logger.error(`Error uploading to Envs.sh: ${error.message}`); // Changed console.error to logger.error
+        logger.error(`Error uploading to Envs.sh: ${error.message}`);
         return null;
     }
 }
@@ -103,7 +104,7 @@ async function uploadToEnvs({ imagePath = null, imageUrl = null }) {
 // --- Upload to Imgbox ---
 async function uploadToImgbox(imagePath) {
     if (!IMGBOX_API_KEY) {
-        logger.warn("Imgbox API key not configured. Skipping Imgbox upload."); // Changed console.log to logger.warn
+        logger.warn("Imgbox API key not configured. Skipping Imgbox upload.");
         return null;
     }
 
@@ -125,27 +126,58 @@ async function uploadToImgbox(imagePath) {
 
         if (response.status === 200 && response.data.success) {
             const imageUrl = response.data.image.url;
-            logger.info(`Imgbox upload successful: ${imageUrl}`); // Changed console.log to logger.info
+            logger.info(`Imgbox upload successful: ${imageUrl}`);
             return imageUrl;
         } else {
-            logger.error(`Imgbox upload failed: ${response.data.error?.message || "Unknown error"}`); // Changed console.error to logger.error
+            logger.error(`Imgbox upload failed: ${response.data.error?.message || "Unknown error"}`);
             return null;
         }
     } catch (error) {
-        logger.error(`Error uploading to Imgbox: ${error.message}`); // Changed console.error to logger.error
+        logger.error(`Error uploading to Imgbox: ${error.message}`);
         return null;
     }
 }
 
+// --- Upload to ImgHippo ---
+const uploadToImgHippo = async (imagePath) => {
+  if (!IMG_UPLOAD_API_KEY) {
+    logger.warn("ImgHippo API key not configured. Skipping ImgHippo upload.");
+    return null;
+  }
+  const form = new FormData();
+
+  // Use fs.createReadStream from 'node:fs' as per user's original code, but ensure it's compatible with fs/promises
+  // The existing fs is fs/promises, so I'll use fs.createReadStream directly.
+  form.append('file', require('node:fs').createReadStream(imagePath)); // Use node:fs for createReadStream
+
+  try {
+    const { data } = await axios.post(
+      `https://www.imghippo.com/v1/upload?api_key=${IMG_UPLOAD_API_KEY}`,
+      form,
+      {
+        headers: form.getHeaders()
+      }
+    );
+    return data.data.view_url;
+  } catch (error) {
+    logger.error(`Error uploading image to ImgHippo: ${error.message}`);
+    if (axios.isAxiosError(error)) {
+        logger.error(`ImgHippo API response error: ${JSON.stringify(error.response?.data)}`);
+    }
+    return null;
+  }
+};
+
+
 // --- Placeholder for FreeImageHost ---
 function uploadToFreeImageHost(imagePath) {
-    logger.warn("FreeImageHost upload is not implemented yet."); // Changed console.warn to logger.warn
+    logger.warn("FreeImageHost upload is not implemented yet.");
     return null;
 }
 
 // --- Placeholder for Catbox ---
 function uploadToCatbox(imagePath) {
-    logger.warn("Catbox upload is not implemented yet."); // Changed console.warn to logger.warn
+    logger.warn("Catbox upload is not implemented yet.");
     return null;
 }
 
@@ -153,6 +185,7 @@ module.exports = {
     uploadToImgbb,
     uploadToEnvs,
     uploadToImgbox,
+    uploadToImgHippo, // Export the new function
     uploadToFreeimagehost: uploadToFreeImageHost,
     uploadToCatbox: uploadToCatbox,
 };
