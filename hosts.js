@@ -139,20 +139,22 @@ async function uploadToImgbox(imagePath) {
 }
 
 // --- Upload to ImgHippo ---
-const uploadToImgHippo = async (imagePath) => {
-  if (!IMG_UPLOAD_API_KEY) {
-    logger.warn("ImgHippo API key not configured. Skipping ImgHippo upload.");
+const uploadToImgHippo = async (imagePath, apiKey, title = null) => {
+  if (!apiKey) {
+    logger.warn("ImgHippo API key not provided. Skipping ImgHippo upload.");
     return null;
   }
   const form = new FormData();
 
-  // Use fs.createReadStream from 'node:fs' as per user's original code, but ensure it's compatible with fs/promises
-  // The existing fs is fs/promises, so I'll use fs.createReadStream directly.
-  form.append('file', require('node:fs').createReadStream(imagePath)); // Use node:fs for createReadStream
+  form.append('file', require('node:fs').createReadStream(imagePath));
+
+  if (title) {
+    form.append('title', title);
+  }
 
   try {
     const { data } = await axios.post(
-      `https://www.imghippo.com/v1/upload?api_key=${IMG_UPLOAD_API_KEY}`,
+      `https://www.imghippo.com/v1/upload?api_key=${apiKey}`,
       form,
       {
         headers: form.getHeaders()

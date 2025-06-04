@@ -162,7 +162,7 @@ bot.on("callback_query", async (callback) => {
                     link = await uploadToImgbox(filePath);
                     break;
                 case "imghippo": // New case
-                    link = await uploadToImgHippo(filePath);
+                    link = await uploadToImgHippo(filePath, config.IMG_UPLOAD_API_KEY, null); // Pass API key and null for title
                     break;
                 default:
                     logger.warn(`Unknown upload host requested: ${host}`);
